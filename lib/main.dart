@@ -24,21 +24,54 @@ class ChatScreen extends StatefulWidget {
 }
 
 class ChatScreenState extends State<ChatScreen> {
+  // 每个列表项都是一个ChatMessage的实例，初始化列表为空
+  final List<ChatMessage> _messages = <ChatMessage>[];
   // TextEditingController读取输入字段的内容，并在发送文本消息后清除字段
   final TextEditingController _textController = new TextEditingController();
   void _handleSubmitted(String text) {
     _textController.clear();
+    ChatMessage message = new ChatMessage(
+      text: text,
+    );
+    // setState是一个同步操作
+    // 通常，setState()在此方法调用之外更改某些私有数据后，可以使用空闭包进行调用。但是，更新内部setState()闭包中的数据是首选，因此您不必忘记之后调用它。
+    setState(() {
+      _messages.insert(0, message);
+    });
   }
 
   @override
   // 每个小部件都有自己的小部件BuildContext，它们成为StatelessWidget.buildor State.build函数返回的小部件的父级
   Widget build(BuildContext context) {
     return new Scaffold(
-      appBar: new AppBar(
-        title: new Text("Friendlychat"),
-      ),
-      body: _buildTextComposer(),
-    );
+        appBar: new AppBar(
+          title: new Text("Friendlychat"),
+        ),
+        body: new Column(
+          children: <Widget>[
+            new Flexible(
+              /*
+             * ListView用于滚动列表
+             * ListView为消息列表添加一个小部件。我们选择ListView.builder构造函数，因为默认构造函数不会自动检测其children参数的突变
+             * 将参数传递给ListView.builder构造函数以自定义列表内容和外观： reverse使ListView开始从屏幕底部, itemCount 指定列表中的消息数
+             * itemBuilder用于构建每个小部件的函数[index]。由于我们不需要当前的构建上下文，我们可以忽略第一个参数IndexedWidgetBuilder。命名参数_（下划线）是一种约定，表示不会使用它。
+             */
+              child: new ListView.builder(
+                padding: new EdgeInsets.all(8.0),
+                reverse: true,
+                itemBuilder: (_, int index) => _messages[index],
+                itemCount: _messages.length,
+              ),
+            ),
+            // 在用于显示消息的UI和用于撰写消息的文本输入字段之间绘制水平规则
+            new Divider(height: 1.0),
+            // 可用于定义背景图像，填充，边距和其他常见布局细节。
+            new Container(
+              decoration: new BoxDecoration(color: Theme.of(context).cardColor),
+              child: _buildTextComposer(),
+            )
+          ],
+        ));
   }
 
   Widget _buildTextComposer() {
@@ -68,6 +101,43 @@ class ChatScreenState extends State<ChatScreen> {
               )
             ],
           )),
+    );
+  }
+}
+
+const String _name = "Your name";
+
+// 聊甜消息的小部件需要嵌套在父的可滚动列表中
+class ChatMessage extends StatelessWidget {
+  ChatMessage({this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) {
+    return new Container(
+      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      /*
+      * 对于头像，父级是一个Row小部件，其主轴是水平的，因此CrossAxisAlignment.start沿垂直轴给出最高位置。
+      * 对于消息，父级是一个Column小部件，其主轴是垂直的，因此CrossAxisAlignment.start沿着水平轴将文本对齐在最左边的位置。
+      */
+      child: new Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          new Container(
+            margin: const EdgeInsets.only(right: 16.0),
+            child: new CircleAvatar(child: new Text(_name[0])),
+          ),
+          new Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              new Text(_name, style: Theme.of(context).textTheme.subhead),
+              new Container(
+                margin: const EdgeInsets.only(top: 5.0),
+                child: new Text(text),
+              )
+            ],
+          )
+        ],
+      ),
     );
   }
 }
