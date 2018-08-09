@@ -1,14 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 
 void main() {
   runApp(new FriendlychatApp());
 }
+
+// 为Android和IOS定义不同的主题色
+final ThemeData kIOSTheme = new ThemeData(
+  primarySwatch: Colors.orange,
+  primaryColor: Colors.grey[100],
+  primaryColorBrightness: Brightness.light,
+);
+
+final ThemeData kDefaultTheme = new ThemeData(
+  primarySwatch: Colors.purple,
+  accentColor: Colors.orangeAccent[400],
+);
 
 class FriendlychatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
       title: "Friendlychat",
+      // theme属性控制主题样式
+      // 使用顶级defaultTargetPlatform属性和条件运算符构建用于选择主题的表达式。
+      theme: defaultTargetPlatform == TargetPlatform.iOS
+          ? kIOSTheme
+          : kDefaultTheme,
       home: new ChatScreen(),
     );
   }
@@ -35,8 +54,13 @@ class ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final List<ChatMessage> _messages = <ChatMessage>[];
   // TextEditingController读取输入字段的内容，并在发送文本消息后清除字段
   final TextEditingController _textController = new TextEditingController();
+  // 控制按钮样式
+  bool _isComposing = false;
   void _handleSubmitted(String text) {
     _textController.clear();
+    setState(() {
+      _isComposing = false;
+    });
     ChatMessage message = new ChatMessage(
         text: text,
         // 实例化一个AnimationController对象并将动画的运行时间指定为700毫秒。
@@ -66,31 +90,42 @@ class ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     return new Scaffold(
         appBar: new AppBar(
           title: new Text("Friendlychat"),
+          elevation: // 定义appBar阴影
+              Theme.of(context).platform == TargetPlatform.iOS ? 0.0 : 4.0,
         ),
-        body: new Column(
-          children: <Widget>[
-            new Flexible(
-              /*
-             * ListView用于滚动列表
-             * ListView为消息列表添加一个小部件。我们选择ListView.builder构造函数，因为默认构造函数不会自动检测其children参数的突变
-             * 将参数传递给ListView.builder构造函数以自定义列表内容和外观： reverse使ListView开始从屏幕底部, itemCount 指定列表中的消息数
-             * itemBuilder用于构建每个小部件的函数[index]。由于我们不需要当前的构建上下文，我们可以忽略第一个参数IndexedWidgetBuilder。命名参数_（下划线）是一种约定，表示不会使用它。
-             */
-              child: new ListView.builder(
-                padding: new EdgeInsets.all(8.0),
-                reverse: true,
-                itemBuilder: (_, int index) => _messages[index],
-                itemCount: _messages.length,
+        // 将小平面包裹Column在Container小部件中，使其上边缘呈现浅灰色边框。
+        body: new Container(
+          child: new Column(
+            children: <Widget>[
+              new Flexible(
+                /*
+            * ListView用于滚动列表
+            * ListView为消息列表添加一个小部件。我们选择ListView.builder构造函数，因为默认构造函数不会自动检测其children参数的突变
+            * 将参数传递给ListView.builder构造函数以自定义列表内容和外观： reverse使ListView开始从屏幕底部, itemCount 指定列表中的消息数
+            * itemBuilder用于构建每个小部件的函数[index]。由于我们不需要当前的构建上下文，我们可以忽略第一个参数IndexedWidgetBuilder。命名参数_（下划线）是一种约定，表示不会使用它。
+            */
+                child: new ListView.builder(
+                  padding: new EdgeInsets.all(8.0),
+                  reverse: true,
+                  itemBuilder: (_, int index) => _messages[index],
+                  itemCount: _messages.length,
+                ),
               ),
-            ),
-            // 在用于显示消息的UI和用于撰写消息的文本输入字段之间绘制水平规则
-            new Divider(height: 1.0),
-            // 可用于定义背景图像，填充，边距和其他常见布局细节。
-            new Container(
-              decoration: new BoxDecoration(color: Theme.of(context).cardColor),
-              child: _buildTextComposer(),
-            )
-          ],
+              // 在用于显示消息的UI和用于撰写消息的文本输入字段之间绘制水平规则
+              new Divider(height: 1.0),
+              // 可用于定义背景图像，填充，边距和其他常见布局细节。
+              new Container(
+                decoration: Theme.of(context).platform == TargetPlatform.iOS
+                    ? new BoxDecoration(
+                        border: new Border(
+                          top: new BorderSide(color: Colors.grey[200]),
+                        ),
+                      )
+                    : null,
+                child: _buildTextComposer(),
+              )
+            ],
+          ),
         ));
   }
 
@@ -107,18 +142,35 @@ class ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               new Flexible(
                 child: new TextField(
                   controller: _textController,
+                  onChanged: (String text) {
+                    setState(() {
+                      _isComposing = text.length > 0;
+                    });
+                  },
                   onSubmitted: _handleSubmitted,
                   decoration:
                       new InputDecoration.collapsed(hintText: "Send a message"),
                 ),
               ),
               new Container(
-                margin: new EdgeInsets.symmetric(horizontal: 4.0),
-                child: new IconButton(
-                  icon: new Icon(Icons.send),
-                  onPressed: () => _handleSubmitted(_textController.text),
-                ),
-              )
+                  margin: new EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Theme.of(context).platform == TargetPlatform.iOS
+                      ? new CupertinoButton(
+                          child: new Text("Send"),
+                          onPressed: _isComposing
+                              ? () => _handleSubmitted(_textController.text)
+                              : null,
+                        )
+                      : new IconButton(
+                          icon: new Icon(Icons.send),
+                          /*
+                    * 如果用户在文本字段中输入字符串，_isComposing是true和按钮的颜色设置为Theme.of(context).accentColor。当用户按下按钮时，系统调用_handleSubmitted()。
+                    * 如果用户没有任何类型的文本字段，_isComposing是false和小部件的onPressed属性设置为null，禁用发送按钮。框架会自动将按钮的颜色更改为Theme.of(context).disabledColor。
+                    */
+                          onPressed: _isComposing
+                              ? () => _handleSubmitted(_textController.text)
+                              : null,
+                        ))
             ],
           )),
     );
@@ -153,7 +205,9 @@ class ChatMessage extends StatelessWidget {
               margin: const EdgeInsets.only(right: 16.0),
               child: new CircleAvatar(child: new Text(_name[0])),
             ),
-            new Column(
+            // Expanded部件可以在当信息长度超过ui宽度的时候进行换行显示整个消息
+            new Expanded(
+                child: new Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 new Text(_name, style: Theme.of(context).textTheme.subhead),
@@ -162,7 +216,7 @@ class ChatMessage extends StatelessWidget {
                   child: new Text(text),
                 )
               ],
-            )
+            ))
           ],
         ),
       ),
